@@ -1,0 +1,36 @@
+- generic [ref=e4]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - button "新建会话" [ref=e9] [cursor=pointer]:
+        - generic [ref=e17]:
+          - generic [ref=e18]: DSH 本地构建
+          - generic [ref=e19]: 0.1.2-alpha.1-cd5ef81
+      - button "收起侧边栏" [ref=e20] [cursor=pointer]
+    - button "新建会话" [ref=e23] [cursor=pointer]:
+      - generic [ref=e26]: 新会话
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]: 工作区
+        - generic [ref=e33]:
+          - button "搜索会话" [ref=e34] [cursor=pointer]
+          - textbox "搜索会话…"
+        - generic [ref=e38]:
+          - button "视图选项" [ref=e40] [cursor=pointer]
+          - button "添加工作区" [ref=e43] [cursor=pointer]
+      - tree "会话" [ref=e49]:
+        - generic [ref=e50]: 暂无会话
+    - button "设置" [ref=e54] [cursor=pointer]
+  - generic [ref=e68]:
+    - generic [ref=e71]:
+      - generic [ref=e76]: 探索未至之境
+      - generic [ref=e77]: 预览版
+    - button "选择工作区" [ref=e79] [cursor=pointer]
+    - generic [ref=e87] [cursor=pointer]:
+      - generic [ref=e89]:
+        - textbox "选择工作区" [ref=e90]
+        - generic: 选择一个工作区开始
+      - generic [ref=e91]:
+        - generic [ref=e92]:
+          - button "指令" [disabled]
+        - generic [ref=e93]:
+          - button "发送消息" [disabled]
