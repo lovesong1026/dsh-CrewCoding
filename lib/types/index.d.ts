@@ -1,0 +1,56 @@
+/**
+ * Crew for DeepSeek Harness.
+ *
+ * A host-plane plugin that registers the `crew_*` tools and one usage
+ * section into the global system prompt. After installation any session can
+ * run controlled coding collaboration only through explicit /crew-check or /crew-build commands:
+ * the model creates a team (it becomes the captain), spawns members as
+ * durable continuable subagents, breaks the goal into tasks with
+ * dependencies, wakes members with messages, relays reports, and collects
+ * results.
+ *
+ * Installation (bundle): `dsh plugin --profile <name> add @nanmicoder/dsh-crew`
+ * (or a local path). The bundle patch mounts this plugin row into the host
+ * composition; the tools register into the shared `tools` registry and the
+ * usage section into the global system prompt, so the plugin needs no realm.
+ *
+ * @module dsh-crew
+ */
+import type { Context } from '@deepseek-ai/cordis';
+import z from '@deepseek-ai/schemastery';
+import { type TeamProfileConfig } from './profiles.ts';
+export declare const name = "crew";
+export declare const inject: string[];
+/** Plugin configuration. */
+export interface Config {
+    /**
+     * State directory name under the captain's workspace; team state lives at
+     * `<workspace>/<stateDir>/<teamId>/` (default `.crew`).
+     */
+    stateDir?: string;
+    /** `ctx.subagents` provider used to spawn members; must support continuable children and personas (default `spawn`). */
+    memberProvider?: string;
+    /** Optional model override applied to every member. */
+    memberModel?: string;
+    /** Prompt injected into member personas and automatic task assignments. */
+    executionPrompt?: string;
+    /** Plugin-wide fallback route for unavailable member models. */
+    fallback?: import('./profiles.ts').TeamModelFallbackConfig;
+    /** Member delegation depth cap (default `1`; `0` forbids delegation entirely). */
+    memberMaxDepth?: number;
+    /** Team size cap in members (default `8`). */
+    maxMembers?: number;
+    /** Named multi-role team profiles. */
+    profiles?: Record<string, TeamProfileConfig>;
+    /** Prompt-section order for the usage policy (default `117`, after delegation policy). */
+    promptSectionOrder?: number;
+    /**
+     * Register explicit coding-profile slash commands and their text gesture boundary.
+     * Ordinary natural-language messages never activate a team.
+     */
+    slashCommand?: boolean;
+}
+export declare const Config: z<Config>;
+/** The model-facing usage policy: when and how to drive Crew. */
+export declare function usageSectionText(toolNames: string, profilesText?: string): string;
+export declare function apply(ctx: Context, config: Config): void;
