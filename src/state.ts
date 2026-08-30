@@ -37,6 +37,7 @@ export {
   sanitizeReviewAcceptance,
   sanitizeReviewObjective,
   taskKindOf,
+  taskAccessOf,
   validateCreateTask,
 } from './quality-gates.ts'
 
@@ -763,6 +764,7 @@ export function isTeamTask(value: unknown): value is TeamTask {
     && isOptionalString(value['attemptId'])
     && isOptionalString(value['handoffId'])
     && (value['reassigning'] === undefined || typeof value['reassigning'] === 'boolean')
+    && (value['access'] === undefined || value['access'] === 'read' || value['access'] === 'write')
     && isFiniteNumber(value['createdAt'])
     && isFiniteNumber(value['updatedAt'])
     && hasValidQualityTaskFields(value)
@@ -789,6 +791,11 @@ function isTeamState(value: unknown, expectedId: string): value is TeamState {
     && (value['planReviewState'] === undefined
       || value['planReviewState'] === 'awaiting_review'
       || value['planReviewState'] === 'awaiting_feedback')
+    && (value['writeLease'] === undefined || (isRecord(value['writeLease'])
+      && typeof value['writeLease']['taskId'] === 'string'
+      && typeof value['writeLease']['attemptId'] === 'string'
+      && typeof value['writeLease']['owner'] === 'string'
+      && isFiniteNumber(value['writeLease']['acquiredAt'])))
     && (value['approvedAt'] === undefined || isFiniteNumber(value['approvedAt']))
     && (value['halted'] === undefined || typeof value['halted'] === 'boolean')
     && (value['haltedAt'] === undefined || isFiniteNumber(value['haltedAt']))

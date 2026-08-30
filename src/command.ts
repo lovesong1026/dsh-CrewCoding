@@ -13,8 +13,6 @@ declare module '@deepseek-ai/dsh-llm' {
   }
 }
 
-const GESTURE = /^\/crew(?=$|[\t\n\r ])/u
-
 /**
  * Convert a configured profile key into a stable, closed-namespace command
  * suffix. Only lowercase ASCII letters, digits and dashes are representable;
@@ -36,7 +34,6 @@ function profileForCommand(commandName: string, profiles: Record<string, TeamPro
 /** Parse either the generic command or one generated profile alias. */
 function parseCommandText(text: string, profiles: Record<string, TeamProfileConfig>): CrewInvocation | undefined {
   const trimmed = text.trimStart()
-  if (GESTURE.test(trimmed)) return parseProfileInvocation(trimmed.slice(CREW_COMMAND.length + 1).trim())
   if (!trimmed.startsWith(`/${PROFILE_COMMAND_PREFIX}`)) return undefined
   const tokenEnd = trimmed.search(/[\t\n\r ]/u)
   const commandName = trimmed.slice(1, tokenEnd === -1 ? undefined : tokenEnd)
@@ -64,7 +61,7 @@ export function invokedCrewGoal(messages: readonly UserMessage[]): string | unde
 
 export function buildActivationDirective(goal: string, profile?: string, taskPlanning: 'captain' | 'seed' = 'seed'): string {
   const lines = [
-    'The user invoked the /crew slash command. Activate the Crew protocol from your instructions now: you are the captain of a multi-agent team.',
+    'The user invoked an explicit CrewCoding profile command. Activate the coding-team protocol now: you are the captain.',
     'Call crew_create with approval="required". Build the complete staged roster and DAG, then stop and ask the user to review the Web plan. Do not approve or start it in this same turn.',
   ]
   if (profile !== undefined) {
@@ -86,19 +83,6 @@ export function buildActivationDirective(goal: string, profile?: string, taskPla
 export function registerCrewCommand(ctx: Context, getProfiles: () => Record<string, TeamProfileConfig> = () => ({})): void {
   ctx.effect(() => {
     const dispose: Array<() => void> = []
-    dispose.push(ctx.commands.register({
-      name: CREW_COMMAND,
-      description: 'run a goal with a multi-agent team (you become the captain)',
-      input: { hint: '[--profile <name>] <goal>' },
-      handler(invocation: CommandInvocation): CommandResult {
-        let parsed: CrewInvocation
-        try { parsed = parseProfileInvocation(invocation.rawInput.trim()) } catch (error: unknown) { return { kind: 'error', text: String(error) } }
-        if (parsed.profile !== undefined && !Object.keys(getProfiles()).some(key => key.trim() === parsed.profile)) return { kind: 'error', text: `unknown Crew profile "${parsed.profile}"` }
-        if (parsed.profile === undefined && parsed.goal === '') return { kind: 'error', text: `Usage: /${CREW_COMMAND} [--profile <name>] <goal>` }
-        invocation.agent.followup(createUserMessage({ content: [{ type: 'text', text: `/${CREW_COMMAND}${invocation.rawInput}` }], source: { kind: 'user' } }))
-        return { kind: 'success', text: `Crew activated${parsed.profile === undefined ? '' : ` with profile ${parsed.profile}`} — the captain will assemble the team.` }
-      },
-    }))
     for (const profileName of Object.keys(getProfiles())) {
       const commandName = profileCommandName(profileName)
       if (commandName === undefined) continue

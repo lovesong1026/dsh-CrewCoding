@@ -32,6 +32,7 @@ import {
   writeTeam,
 } from './state.ts'
 import type { TeamMember, TeamState, TeamTask } from './types.ts'
+import { taskAccessOf } from './quality-gates.ts'
 
 /** Per-dependency output cap in the assignment prompt. */
 export const DEPENDENCY_OUTPUT_MAX_CHARS = 2_000
@@ -189,8 +190,11 @@ function nextReadyTask(tasks: readonly TeamTask[], memberName: string): TeamTask
   const ready = tasks.filter(task => task.status === 'pending'
     && task.reassigning !== true
     && unsatisfiedDependencies([...tasks], task.dependencies).length === 0)
-  return ready.find(task => task.assignee === memberName)
-    ?? ready.find(task => task.assignee === undefined)
+  const activeWriter = tasks.some(task => taskAccessOf(task) === 'write'
+    && (task.status === 'claimed' || task.status === 'in_progress'))
+  const claimable = ready.filter(task => taskAccessOf(task) !== 'write' || !activeWriter)
+  return claimable.find(task => task.assignee === memberName)
+    ?? claimable.find(task => task.assignee === undefined)
 }
 
 export function assignmentPrompt(ticket: DispatchTicket, stateDir: string, teamId: string): string {
@@ -360,6 +364,9 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
           }
           const previousAssignee = task.assignee
           const attemptId = beginTaskAttempt(task, currentMember.name)
+          if (taskAccessOf(task) === 'write') {
+            fresh.writeLease = { taskId: task.id, attemptId, owner: currentMember.name, acquiredAt: Date.now() }
+          }
           parkedAttempts.delete(currentMember.id)
           currentMember.status = 'working'
           await writeTeam(stateRoot, fresh)

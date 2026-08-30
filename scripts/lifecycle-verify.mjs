@@ -248,48 +248,24 @@ installCrewGestureBoundary(ctx, () => liveProfiles)
 
 const command = commandDefinitions.get('crew')
 const profileCommand = commandDefinitions.get('crew-demo-delivery')
-check('slash command registers as /crew',
-  command !== undefined && typeof command.description === 'string' && command.description.length > 0)
-check('slash command advertises an input hint for the menu placeholder',
-  typeof command?.input?.hint === 'string' && command.input.hint.length > 0)
+check('generic /crew command is not registered', command === undefined)
 check('configured profile registers a concise dedicated slash command',
   profileCommand !== undefined && profileCommandName('demo-delivery') === 'crew-demo-delivery'
     && typeof profileCommand.description === 'string' && profileCommand.description.includes('demo-delivery'))
 check('unsafe profile names do not generate ambiguous commands',
   profileCommandName('delivery team') === undefined && profileCommandName('delivery_team') === undefined)
 
-const bare = command.handler({
-  agent: captain, rawInput: '   ', signal: new AbortController().signal, commandId: 'cmd-bare',
-})
-check('bare /crew reports usage instead of activating',
-  bare.kind === 'error' && bare.text.includes('Usage: /crew')
-    && captain.followups.length === 0)
-
-const goal = 'ship a tiny CLI'
-const activated = command.handler({
-  agent: captain, rawInput: `  ${goal}  `, signal: new AbortController().signal, commandId: 'cmd-goal',
-})
-check('argued /crew queues one visible user turn',
-  activated.kind === 'success' && captain.followups.length === 1)
-const submittedCommand = captain.followups[0]
-check('slash command preserves the exact submitted line as user-authored chat',
-  submittedCommand?.source?.kind === 'user'
-    && submittedCommand.content.some(block => block.type === 'text'
-      && block.text === `/crew  ${goal}  `))
-check('preserved slash command still activates through the gesture boundary',
-  invokedCrewGoal([submittedCommand]) === goal)
-check('activation directive names the protocol', buildActivationDirective(goal).includes('Crew protocol'))
 const profileGoal = 'ship the prepared release'
 const profileActivated = profileCommand.handler({
-  agent: captain, rawInput: ` ${profileGoal}`, signal: new AbortController().signal, commandId: 'cmd-profile-alias',
+  agent: captain, rawInput: ' ' + profileGoal, signal: new AbortController().signal, commandId: 'cmd-profile-alias',
 })
 check('profile command queues a visible profile-specific user turn',
-  profileActivated.kind === 'success' && captain.followups.length === 2
-    && captain.followups[1]?.content.some(block => block.type === 'text' && block.text === `/crew-demo-delivery ${profileGoal}`))
+  profileActivated.kind === 'success' && captain.followups.length === 1
+    && captain.followups[0]?.content.some(block => block.type === 'text' && block.text === '/crew-demo-delivery ' + profileGoal))
 
 const userMessage = text => ({ id: 'm', role: 'user', content: [{ type: 'text', text }], source: { kind: 'user' } })
-check('gesture recognizes a leading /crew token',
-  invokedCrewGoal([userMessage('/crew ship a CLI')]) === 'ship a CLI')
+check('generic /crew gesture stays ordinary prose',
+  invokedCrewGoal([userMessage('/crew ship a CLI')]) === undefined)
 check('profile command gesture selects its configured profile and goal',
   invokedCrewInvocation([userMessage('/crew-demo-delivery ship a CLI')], () => liveProfiles)?.profile === 'demo-delivery'
     && invokedCrewInvocation([userMessage('/crew-demo-delivery ship a CLI')], () => liveProfiles)?.goal === 'ship a CLI')
@@ -298,40 +274,22 @@ check('bare profile command gesture asks for the goal',
     && invokedCrewInvocation([userMessage('/crew-demo-delivery')], () => liveProfiles)?.goal === '')
 check('unknown profile command stays ordinary prose',
   invokedCrewInvocation([userMessage('/crew-missing ship a CLI')], () => liveProfiles) === undefined)
-check('bare gesture yields an empty goal', invokedCrewGoal([userMessage('  /crew')]) === '')
 check('mid-sentence mention stays ordinary prose',
   invokedCrewGoal([userMessage('how do I use /crew here?')]) === undefined)
 check('non-user sources cannot forge the gesture',
-  invokedCrewGoal([{ ...userMessage('/crew x'), source: { kind: 'plugin', plugin: 'fake' } }]) === undefined)
-check('latest user gesture wins in a batch',
-  invokedCrewGoal([userMessage('/crew first'), userMessage('/crew second')]) === 'second')
-const profileOnly = command.handler({
-  agent: captain, rawInput: '--profile demo-delivery', signal: new AbortController().signal, commandId: 'cmd-profile-only',
-})
-check('slash --profile without a goal still activates',
-  profileOnly.kind === 'success' && captain.followups.length === 3)
+  invokedCrewGoal([{ ...userMessage('/crew-demo-delivery x'), source: { kind: 'plugin', plugin: 'fake' } }]) === undefined)
+check('latest explicit profile gesture wins in a batch',
+  invokedCrewInvocation([userMessage('/crew-demo-delivery first'), userMessage('/crew-demo-delivery second')], () => liveProfiles)?.goal === 'second')
 check('profile-only activation asks for the goal',
   buildActivationDirective('', 'demo-delivery').includes('The goal was not given')
     && buildActivationDirective('', 'demo-delivery').includes('Use configured Crew profile "demo-delivery"'))
+check('activation directive names the coding protocol',
+  buildActivationDirective('ship it', 'demo-delivery').includes('coding-team protocol'))
 check('captain-planning activation requires a staged user-reviewed graph',
   buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('approval="required"')
     && buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('review the Web plan')
     && buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('run in parallel')
     && !buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('seed tasks'))
-const unknownProfile = command.handler({
-  agent: captain, rawInput: '--profile missing 做X', signal: new AbortController().signal, commandId: 'cmd-unknown',
-})
-check('unknown slash profile reports error and does not followup',
-  unknownProfile.kind === 'error' && captain.followups.length === 3)
-check('leading ordinary token is never treated as a profile',
-  invokedCrewInvocation([userMessage('/crew research this bug')])?.goal === 'research this bug'
-    && invokedCrewInvocation([userMessage('/crew research this bug')])?.profile === undefined)
-liveProfiles['hot-reload'] = { members: [{ name: 'solo', model: 'fake' }] }
-check('command getter sees HMR profile names',
-  command.handler({
-    agent: captain, rawInput: '--profile hot-reload', signal: new AbortController().signal, commandId: 'cmd-hmr',
-  }).kind === 'success')
-delete liveProfiles['hot-reload']
 
 try {
   const createdProfile = await call('crew_create', {

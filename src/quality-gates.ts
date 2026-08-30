@@ -19,6 +19,7 @@ import {
   type TaskStatus,
   type TeamState,
   type TeamTask,
+  type TaskAccess,
 } from './types.ts'
 
 const QUALITY_KINDS: readonly TaskKind[] = [
@@ -166,6 +167,12 @@ const GATE_TEST_CONTRACT = /needs[_ ]revision|拒绝路径|verdict\s*=\s*needs_r
 
 export function taskKindOf(task: Pick<TeamTask, 'kind'> | undefined): TaskKind {
   return task?.kind ?? 'work'
+}
+
+/** The product default is safe: only implementation/repair tasks may write. */
+export function taskAccessOf(task: Pick<TeamTask, 'kind' | 'access'> | undefined): TaskAccess {
+  if (task?.access === 'read' || task?.access === 'write') return task.access
+  return WRITE_KINDS.includes(taskKindOf(task)) ? 'write' : 'read'
 }
 
 export function isQualityKind(kind: TaskKind | undefined): boolean {

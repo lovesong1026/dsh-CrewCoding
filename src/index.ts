@@ -3,7 +3,7 @@
  *
  * A host-plane plugin that registers the `crew_*` tools and one usage
  * section into the global system prompt. After installation any session can
- * run multi-agent teamwork through natural language (e.g. "use Crew to research X"):
+ * run controlled coding collaboration only through explicit /crew-check or /crew-build commands:
  * the model creates a team (it becomes the captain), spawns members as
  * durable continuable subagents, breaks the goal into tasks with
  * dependencies, wakes members with messages, relays reports, and collects
@@ -87,9 +87,8 @@ export interface Config {
   /** Prompt-section order for the usage policy (default `117`, after delegation policy). */
   promptSectionOrder?: number
   /**
-   * Register the deterministic `/crew` activation surfaces (the
-   * closed-namespace slash command and the plain-text gesture boundary).
-   * Disable to keep the natural-language trigger as the only entry point.
+   * Register explicit coding-profile slash commands and their text gesture boundary.
+   * Ordinary natural-language messages never activate a team.
    */
   slashCommand?: boolean
 }
@@ -146,7 +145,7 @@ export const Config: z<Config> = z.object({
 
 /** The model-facing usage policy: when and how to drive Crew. */
 export function usageSectionText(toolNames: string, profilesText = ''): string {
-  return `When the user asks to run something with Crew (e.g. "use Crew to do X"), or an activation message from the /crew slash command arrives, you are the captain of a multi-agent team. Follow this protocol:
+  return `Only activate CrewCoding after an explicit /crew-<profile> command (such as /crew-check or /crew-build) injects an activation message. Do not create a team for ordinary conversation or natural-language requests. When activated, you are the captain of a coding team. Follow this protocol:
 1. Call crew_create with a team name, the goal as description, and approval="required". This creates a staged plan and must not spawn members or schedule work. Use approval="automatic" only when the user explicitly asks to skip review and run immediately.
 2. Call crew_add_member once per role the goal needs (researcher, engineer, reviewer, ...). In staging these are editable roster entries, not running subagents. By default a member snapshots your current provider/model/reasoning route; use a different route only when the goal or user requires it.
 3. Analyze the goal and create the smallest useful task DAG while staged. Every crew_create_task call must include a non-empty subject, including verification and review tasks. Independent work should be parallel; dependencies are only genuine prerequisites. Finish the complete roster and DAG, tell the user the Web plan is ready, then end this turn. Never call crew_approve during the planning turn. The user may click Approve & Run, explicitly approve in a later user turn, return to chat to request changes, or discard the plan. The review UI injects an authoritative control message for return/discard actions: follow it exactly and never infer that a missing or paused team should be recreated. When the user returns to chat, first ask one concise clarification question without editing or recreating; after their answer, call crew_edit_plan once with an ordered atomic batch, update downstream dependencies/assignees before removals, summarize the revision, and wait for review again. Never inspect or edit .crew state files or plugin source code to revise a plan. Only explicit approval may call crew_approve.
@@ -204,11 +203,9 @@ export function apply(ctx: Context, config: Config): void {
 
   const crewRuntime = registerCrewTools(ctx, resolved)
 
-  // Deterministic activation surfaces: the closed-namespace `/crew`
-  // host command (surfaces in the Web GUI slash menu via the Harness
-  // ui-commands client) and the plain-text gesture boundary for surfaces
-  // without command adjudication (headless CLI). Both default on; a profile
-  // can disable them to keep the natural-language trigger exclusive.
+  // Explicit profile commands surface in the GUI slash menu and the text
+  // gesture boundary supports headless CLI. No generic /crew or natural-language
+  // activation exists: ordinary coding stays with the primary DSH agent.
   //
   // `commands` is registered lazily (not a required inject): it ships in the
   // base bundle of every standard profile, but a minimal composition that

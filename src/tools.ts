@@ -49,6 +49,7 @@ import {
   sanitizeReviewAcceptance,
   sanitizeReviewObjective,
   taskKindOf,
+  taskAccessOf,
 } from './state.ts'
 import type { AcceptanceResult, CommandResult, ReviewFinding, ReviewVerdict, TaskKind } from './types.ts'
 import {
@@ -1514,7 +1515,12 @@ export function registerCrewTools(ctx: Context, config: ToolsConfig): CrewRuntim
         if (busy !== undefined) {
           throw new Error(`member "${assignee}" is busy with ${busy.id}; finish or reassign it first`)
         }
+        if (taskAccessOf(task) === 'write') {
+          const activeWriter = fresh.tasks.find((candidate) => candidate.id !== task.id && taskAccessOf(candidate) === 'write' && (candidate.status === 'claimed' || candidate.status === 'in_progress'))
+          if (activeWriter !== undefined) throw new Error('workspace write lease is held by '+activeWriter.id+'; wait for it to finish before claiming '+task.id)
+        }
         const attemptId = beginTaskAttempt(task, assignee)
+        if (taskAccessOf(task) === 'write') fresh.writeLease = { taskId: task.id, attemptId, owner: assignee, acquiredAt: Date.now() }
         await writeTeam(stateRoot, fresh)
         appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, caller.session), 'crew/task-updated', {
           teamId: fresh.id,
@@ -1677,6 +1683,7 @@ export function registerCrewTools(ctx: Context, config: ToolsConfig): CrewRuntim
         if (acceptanceResults !== undefined) task.acceptanceResults = acceptanceResults
         if (commandsRun !== undefined) task.commandsRun = commandsRun
         task.updatedAt = Date.now()
+        if (TERMINAL_TASK_STATUSES.includes(task.status) && fresh.writeLease?.taskId === task.id) delete fresh.writeLease
         const followUp = (task.status === 'failed' && (task.verdict === 'needs_revision' || task.verdict === 'reject'))
           ? applyQualityFollowUp(fresh, task)
           : undefined

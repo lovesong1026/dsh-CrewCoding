@@ -2,152 +2,99 @@
   <a href="./README.md">English</a> · <strong>简体中文</strong>
 </p>
 
-<p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="dsh-crew 把一个 DeepSeek Harness 会话变成可协作的多智能体团队">
-</p>
+# dsh-CrewCoding
 
-<p align="center">
-  <a href="https://dshfind.com/zh/plugins/NanmiCoder/dsh-crew?ref=badge"><img src="https://img.shields.io/badge/%E7%94%B1%20dshfind-%E6%8E%A8%E8%8D%90-FFD700?style=flat-square" alt="由 dshfind 推荐"></a>
-  <a href="https://dshfind.com/zh/plugins/NanmiCoder/dsh-crew?ref=badge"><img src="https://dshfind.com/api/badge/NanmiCoder/dsh-crew?lang=zh" alt="dshfind 评分"></a>
-  <a href="https://dshfind.com/zh/plugins/NanmiCoder/dsh-crew?ref=badge"><img src="https://dshfind.com/api/badge/NanmiCoder/dsh-crew?metric=downloads&amp;lang=zh" alt="dshfind 下载量"></a>
-</p>
+> 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 设计的受控多 Agent 编码协作插件。
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/@nanmicoder/dsh-crew"><img src="https://img.shields.io/npm/v/@nanmicoder/dsh-crew?style=flat-square&amp;color=5B4CF0" alt="npm 版本"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-0B7285?style=flat-square" alt="MIT 许可证"></a>
-  <a href="./cordis.patch.yml"><img src="https://img.shields.io/badge/DSH-Web%20%2B%20Headless-5B4CF0?style=flat-square" alt="DSH Web 与 Headless"></a>
-</p>
+普通编码问题继续由 DSH 主 Agent 完成。只有需要并行审查，或需要“实现 → 验证”的受控交付时，才启动一个小型 Crew。
 
-## 一句话，拉起一支真正协作的团队
+## 只保留两条命令
 
-`dsh-crew` 让当前 DeepSeek Harness 会话成为队长：创建可续聊的子 Agent、把目标拆成有依赖的任务，并通过直达消息协调成员工作。
+| 命令 | 适用场景 | 执行方式 |
+| --- | --- | --- |
+| `/crew-check <目标>` | 安全、性能审查 | 两个只读审查者并发工作。 |
+| `/crew-build <目标>` | 功能开发、重构、跨模块改动 | 一个实现者写入；一个验证者独立审查与测试。 |
 
-你只需用自然语言提出目标。插件会提供团队协议、13 个协作工具、持久化状态、自动共享任务调度和实时 Web UI，不需要额外的 Workflow 引擎。
+刻意不提供通用 `/crew`，也不做自然语言自动分流。小问题应由主 Agent 直接完成，不为协作付出额外 token 和调度成本。
 
-<p align="center">
-  <img src="./assets/ui.png" width="100%" alt="DeepSeek Harness 对话与 Crew 实时活动面板，展示成员、任务依赖和回报">
-</p>
+## 在共享工作区中如何保持安全
 
-## 版本更新
+- **同一时刻只有一个写入者。** 实现和修复任务必须获取持久化写入租约；检查、审查和测试任务仍可并发。
+- **先审阅计划，再启动。** 命令先生成待审批的成员与任务图；点击 **Approve & Run** 前不会创建子 Agent。
+- **交付有可核验的契约。** 写任务记录范围、验收条件、验证命令、实际修改路径与证据。
+- **实现与验证分离。** 实现者不能批准自己的修改；验证者基于真实 diff 做独立检查。
+- **状态可恢复。** 团队状态保存在 `<workspace>/.crew-coding/`；重试或转派后，旧 attempt 的迟到更新会被拒绝。
 
-查看[最新版本说明](https://github.com/NanmiCoder/dsh-crew/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-crew/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
+> 写入租约能阻止插件调度出的写任务重叠；它不是宿主级文件沙箱，不能物理阻止模型任意执行 shell 写操作。
 
-## 为什么需要 Crew？
+## 运行流程
 
-| 能力 | 带来的变化 |
-| --- | --- |
-| **队长式委派** | 当前会话负责建队、分配角色并汇总最终结果。 |
-| **可续聊成员** | 成员是可持续唤醒的 DSH 子 Agent，可以继续执行聚焦的后续轮次。 |
-| **带依赖的任务** | 任务有明确状态；依赖未完成时不能领取。 |
-| **自动续领与安全接管** | 成员空闲后自动领取下一项就绪任务；转派会撤销旧 attempt，冷恢复会重试遗留任务，迟到结果无法覆盖。 |
-| **成员直达消息** | 成员通过持久化邮箱直接联系队友或队长，不需要队长中转。 |
-| **实时活动面板** | Web UI 用分段进度、可折叠成员树和可交互 DAG 展示实时工作；运行中的子任务会标出使用的模型，团队结束后仍保留完整成员与任务历史。 |
-| **质量门禁** | 人只提供目标和约束。默认任务顺序是需求 → 实现 → 验证 → 审查 → 集成，失败后自动修复/复审，恢复团队必须显式 resume。第一版范围控制是完成时审计，不是 host 写入拦截。详见 [docs/quality-gates.md](./docs/quality-gates.md)。 |
+```text
+/crew-check 鉴权中间件
+  → 生成待审批计划
+  → 批准
+  → security + performance 并行只读审查
+  → 汇总有代码证据的问题
 
-对话卡片与活动面板接入 Harness 官方多语言服务，会随宿主在简体中文和英文之间实时切换；任务/成员状态、动态摘要、操作按钮、历史归档标识和无障碍文案都会同步更新，无需刷新页面，也不增加插件自己的语言设置。
+/crew-build 为 API 增加限流
+  → 生成待审批计划
+  → 批准
+  → implementer 唯一写入
+  → verifier 审查 diff 并运行验证
+  → 仅在发现真实问题时进入 repair
+```
+
+右上角悬浮监控器保持不变：显示当前任务、成员、写入状态和进度，但不占用主对话。
 
 ## 安装
 
-> [!NOTE]
-> 使用前请确保已安装 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)。
-
-### npm
+### 从 npm 安装
 
 ```sh
-dsh plugin --profile web add @nanmicoder/dsh-crew@latest
+dsh plugin --profile web add @nanmicoder/dsh-crew-coding
 ```
 
-### 从源码构建
+### 从本地源码安装
 
 ```sh
-git clone https://github.com/NanmiCoder/dsh-crew.git
-cd dsh-crew
 pnpm install
 pnpm build
-dsh plugin --profile web add .
+dsh plugin --profile web add /绝对路径/dsh-CrewCoding
 ```
 
-修改源码后请重新执行 `pnpm build`。本地安装会继续链接到当前源码目录。
-
-检查组合配置、重启 DSH，然后刷新 Web UI：
+检查组合配置后重启 DSH：
 
 ```sh
 dsh --profile web --dump-config
-dsh web
+dsh web --no-open
 ```
 
-接着直接用自然语言拉团队：
+## 默认 Profile
 
-> 使用 Crew 审查 v0.5.3 之后的提交，分别从性能、安全和产品角度分工，最后输出一份汇总报告。
-
-## 工作方式
-
-1. 当前会话创建团队并成为队长。
-2. 队长按角色添加由可续聊子 Agent 驱动的成员。
-3. 目标被拆成有负责人和显式依赖的任务。
-4. 共享调度器依据真实 `running / idle / ready` 状态，为每个空闲成员原子领取一项就绪任务并唤醒它；驻留成员被中断时会停驻当前 attempt，可通过直接消息继续而不丢 capability；只有冷进程重启后的遗留任务才会生成新 attempt 恢复。
-5. 成员携带当前 `attempt_id` 更新任务；转派或队长接管会先撤销旧 attempt、等待原成员安静，再启动新 attempt。
-6. 队长汇总结果，随后归档完整团队记录。
-
-团队状态保存在 `<workspace>/.crew/`；Web 面板读取这份磁盘真相，并与实时子 Agent 活动合并展示。
-
-成员创建默认零交互：成员沿用队长当前 LLM 路由时会快照该 provider、model 与思考强度；用户要求改用其他路由时，则快照目标模型的默认强度，成员后续续跑仍使用最终解析出的快照。只有当用户明确提出异构分工（例如“后端用 provider A/model X，前端用 provider B/model Y”）时，队长才会把对应的 `provider` + `model` 传给该成员；不会逐个弹出模型或思考强度选择。
-
-## Slash 命令
-
-无需再说“用 Crew”。插件注册了封闭命名空间的 `/crew` 宿主命令，Web GUI 的 slash 菜单会显示 `crew` 占位项与输入提示：选中它（或直接输入命令）、描述目标、回车即可。
-
-```
-/crew 调研三家竞品的定价页
-```
-
-这一行被命令管线认领后，会按用户提交的原文作为普通用户消息送入主会话，因此聊天记录中仍能看到完整的 `/crew …`。手势边界会在 pre-step 注入确定性激活指令，队长协议仍会立即启动。调用也会持久化记录（`command/run` / `command/done`）。
-
-没有命令裁决的表面（例如 headless CLI）也享有同等的确定性激活：任何以 `/crew` 开头的真实用户消息，都会为其余文本激活该协议；句子中间出现的字样仍是普通文本。
-
-## 配置
-
-默认配置可以直接使用。受信任的 Profile 可以覆盖成员行为：
+发行包内置两种最小 profile：
 
 ```yaml
-- id: crew
+profiles:
+  check:
+    # security + performance，均为只读
+  build:
+    # implementer 写入，verifier 只读
+```
+
+Profile 覆盖会替换整段插件配置，因此请重新声明所需字段：
+
+```yaml
+- id: crew-coding
   config:
-    stateDir: .crew
+    stateDir: .crew-coding
     memberProvider: spawn
-    memberModel: deepseek-v4
     memberMaxDepth: 1
-    maxMembers: 8
+    maxMembers: 3
+    profiles:
+      # 自定义 check/build
 ```
 
-这里的 `memberProvider` 指子 Agent 的运行后端（`spawn` / `fork`），不是 LLM provider。跨 LLM provider 由 `crew_add_member` 的可选 `provider` + `model` 参数表达；`memberModel` 只是所有成员的模型默认覆盖。成员沿用队长当前 provider/model 时会继承队长的思考强度；provider 或 model 任一改变时会自动使用目标模型的默认档。需要指定特定强度时，可传入可选的 `reasoning_effort` 参数（目标模型支持的档位 id，或 `"default"` 表示强制使用模型自身默认档）。
-
-`slashCommand: false` 可关闭确定性的 `/crew` 激活面（slash 命令与手势边界），仅保留自然语言触发。
-
-## 使用边界
-
-- 一个队长同一时间只能带一个活动团队。
-- 没有开放任务的空闲成员会自动续领就绪任务；仍持有开放 attempt 的空闲成员会停驻，队长可发消息让其沿用原 attempt 继续，或显式转派；冷重启遗留的开放任务才会生成新 attempt。暂时无法实时投递的消息会持久保存在邮箱中并在后续状态边界重投。
-- 状态使用文件持久化，并在单个 DSH 进程内串行操作；多个进程同时修改同一团队不保证一致。
-- 活动面板如实展示持久化状态；模型偶尔可能完成工作却没有按协议更新任务状态。
-
-完整工具列表、状态模型、Web UI 行为、配置与已知限制见 [docs/usage.md](./docs/usage.md)。
-
-## 插件开发 Skill
-
-仓库同时提供开放 Agent Skills 包 [`dsh-plugin-development`](./skills/dsh-plugin-development/SKILL.md)：
-
-```sh
-npx skills add NanmiCoder/dsh-crew --skill dsh-plugin-development
-```
-
-## 文档
-
-| 指南 | 内容 |
-| --- | --- |
-| [使用指南](./docs/usage.md) | 架构、UI 行为、工具、配置、限制与验证 |
-| [验证指南](./docs/verification-guide.md) | 离线、组合、真实 e2e 与 GUI 验证 |
-| [插件开发](./docs/developing-dsh-plugins.md) | 基于本插件整理的人类可读开发指南 |
-| [README 写作](./docs/readme-writing-guide.md) | 仓库文档约定 |
+`memberMaxDepth: 1` 表示 Captain 可创建一级成员，成员不能继续委派。
 
 ## 开发
 
@@ -157,11 +104,14 @@ pnpm build
 pnpm verify
 ```
 
-## 命名多角色团队配置
+改动 host、包元数据或 profile 后要重启 DSH；普通客户端构建后刷新当前 Web 页面即可。
 
-在 `cordis.patch.yml` 的 `profiles` 中配置完整团队模板。每个 profile 都提供成员阵容，可独立指定 provider、model、role、reasoning_effort。`taskPlanning: captain` 表示只提供阵容和约束，由 Captain 根据用户目标设计 DAG；省略该字段或设为 `seed` 时，展开模板中的固定任务图。使用 `/crew --profile <名称> <目标>` 显式激活；不会把首个普通 token 隐式识别为 profile。
+## 边界
 
-普通 `/crew` 流程会调用 `crew_create({ profile, approval: "required" })`：只落盘可编辑的成员占位和 DAG，不创建子会话、不领取任务。成员模型和推理等级直接读取 Harness 的模型目录。「返回对话修改」会终止仍在运行的规划轮次，让队长先追问修改方向，再用一次原子操作更新同一份草案；「放弃本次计划」经二次确认后会归档草案、中止轮次，并向模型注入不得自动重建团队的控制上下文。只有点击「确认并启动团队」才会按最终配置原子创建成员并启动就绪任务。运行中团队的停止入口位于该团队的面板标题，点击后需要二次确认，不再占用输入区域。直接工具调用方可显式传 `approval: "automatic"` 保留旧的立即执行路径。审查或测试失败不会解锁下游；自动 repair/review 不依赖 failed review。
+- 这是 Coding 协作插件，不是通用研究或专家路由器。
+- 一个 Captain 同时只管理一个活动团队。
+- 未经用户明确请求，不部署、不发送外部消息，也不产生其他外部副作用。
+- 不要让多个 DSH 进程同时操作同一个 `.crew-coding` 团队状态。
 
 ## 许可证
 

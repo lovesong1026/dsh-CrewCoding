@@ -40,6 +40,18 @@ export const TASK_KINDS: readonly TaskKind[] = [
   'work',
 ]
 
+/** Workspace capability granted to a task. Read tasks may inspect and verify;
+ * write tasks are serialized by the team's durable write lease. */
+export type TaskAccess = 'read' | 'write'
+
+/** Durable, single-writer lease for a shared coding workspace. */
+export interface WriteLease {
+  taskId: string
+  attemptId: string
+  owner: string
+  acquiredAt: number
+}
+
 /** Review / requirements conclusion. Only `pass` may complete those kinds. */
 export type ReviewVerdict = 'pass' | 'needs_revision' | 'reject'
 
@@ -113,6 +125,8 @@ export interface TeamTask {
   reassigning?: boolean
   /** Quality-gate kind. Missing values are treated as `work`. */
   kind?: TaskKind
+  /** Read by default; implementation and repair tasks default to write. */
+  access?: TaskAccess
   /** Review / requirements / repair loop index, 1-based when present. */
   round?: number
   verdict?: ReviewVerdict
@@ -246,4 +260,6 @@ export interface TeamState {
   reviewPolicy?: ReviewPolicy
   /** Set when an automatic review/repair loop hits its configured ceiling. */
   escalated?: boolean
+  /** Present only while one implementation/repair attempt owns the workspace. */
+  writeLease?: WriteLease
 }

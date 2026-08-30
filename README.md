@@ -1,164 +1,96 @@
-<p align="right">
-  <strong>English</strong> · <a href="./README_ZH.md">简体中文</a>
-</p>
+# dsh-CrewCoding
 
-<p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="dsh-crew turns one DeepSeek Harness session into a coordinated multi-agent team">
-</p>
+> Controlled multi-agent coding for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
-<p align="center">
-  <a href="https://dshfind.com/en/plugins/NanmiCoder/dsh-crew?ref=badge"><img src="https://img.shields.io/badge/recommended%20by-dshfind-FFD700?style=flat-square" alt="Recommended by dshfind"></a>
-  <a href="https://dshfind.com/en/plugins/NanmiCoder/dsh-crew?ref=badge"><img src="https://dshfind.com/api/badge/NanmiCoder/dsh-crew?lang=en" alt="dshfind score"></a>
-  <a href="https://dshfind.com/en/plugins/NanmiCoder/dsh-crew?ref=badge"><img src="https://dshfind.com/api/badge/NanmiCoder/dsh-crew?metric=downloads&amp;lang=en" alt="dshfind downloads"></a>
-</p>
+dsh-CrewCoding keeps ordinary work with DSH’s primary agent. It starts a small team only when code needs parallel review or a controlled implementation-and-verification loop.
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/@nanmicoder/dsh-crew"><img src="https://img.shields.io/npm/v/@nanmicoder/dsh-crew?style=flat-square&amp;color=5B4CF0" alt="npm version"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-0B7285?style=flat-square" alt="MIT license"></a>
-  <a href="./cordis.patch.yml"><img src="https://img.shields.io/badge/DSH-Web%20%2B%20Headless-5B4CF0?style=flat-square" alt="DSH Web and Headless"></a>
-</p>
+## Two commands, two jobs
 
-## One prompt. A working team.
+| Command | Use it for | What runs |
+| --- | --- | --- |
+| `/crew-check <goal>` | Security and performance review | Two read-only reviewers run in parallel. |
+| `/crew-build <goal>` | Features, refactors, cross-module changes | One implementer writes; one verifier independently reviews and tests. |
 
-`dsh-crew` turns the current DeepSeek Harness session into a captain that can assemble durable sub-agents, split a goal into dependency-aware tasks, and coordinate work through direct messages.
+There is deliberately no generic `/crew` command and no natural-language auto-routing. A small coding request should stay with the primary DSH agent.
 
-Ask in natural language. The plugin provides the team protocol, thirteen coordination tools, persistent state, an automatic shared-task scheduler, and a live Web UI—without requiring a separate workflow engine.
+## Why it is safe to use in one workspace
 
-<p align="center">
-  <img src="./assets/ui.png" width="100%" alt="DeepSeek Harness conversation with the Crew live activity panel, members, tasks, dependencies, and reports">
-</p>
+- **One writer at a time.** Implementation and repair tasks acquire a durable write lease. Read, review, and test tasks can still run concurrently.
+- **Explicit plan approval.** A command creates a staged roster and task graph first. Nothing is spawned until you choose **Approve & Run**.
+- **Scoped delivery.** Writing tasks record their expected paths, acceptance criteria, verification commands, changed paths, and evidence.
+- **Independent verification.** The implementer does not approve its own change. The verifier reviews the resulting diff and runs relevant checks.
+- **Durable coordination.** Team state is stored under `<workspace>/.crew-coding/`; task attempts reject stale updates after a handoff or retry.
 
-## Releases
+> The write lease prevents plugin-scheduled writers from overlapping. It is not a host-level sandbox that can physically stop an arbitrary shell command issued by a model.
 
-Read the [latest release notes](https://github.com/NanmiCoder/dsh-crew/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-crew/releases). The same Markdown notes are included in the npm package under `release-notes/`.
+## What happens when you run a command
 
-## Why Crew?
+```text
+/crew-check authentication middleware
+  → staged plan
+  → approve
+  → security + performance reviewers run in parallel
+  → one evidence-based report
 
-| Capability | What it changes |
-| --- | --- |
-| **Captain-led delegation** | The current session creates the team, assigns roles, and consolidates the final result. |
-| **Durable members** | Members are continuable DSH sub-agents that can be woken for focused follow-up turns. |
-| **Dependency-aware tasks** | Tasks move through explicit states and cannot be claimed before their dependencies finish. |
-| **Automatic reuse and safe takeover** | Idle members claim the next ready task; reassignment revokes stale attempts before new work starts, and cold recovery retries stranded open attempts. |
-| **Direct messaging** | Members send durable mailbox messages directly to teammates or the captain—no relay required. |
-| **Live activity panel** | The Web UI combines segmented progress, a collapsible roster, and an interactive task DAG; running tasks show the member's model, and completed archives retain their full member and task history. |
-| **Plan before execution** | Normal `/crew` runs stage an unspawned roster and DAG first. The Web panel uses the host model catalog for member routes. Returning to chat stops the planning turn, asks what should change, and revises the same draft; discarding archives the draft, aborts the turn, and explicitly prevents automatic recreation. Only **Approve & Run** creates members and starts scheduling. |
-| **Quality gates** | Opt-in quality tasks support requirements → implementation → verification → review → integration contracts, automatic repair/re-review, and explicit resume. Scope control is a completion-time audit, not host write interception. See [docs/quality-gates.md](./docs/quality-gates.md). |
+/crew-build add rate limiting to the API
+  → staged plan
+  → approve
+  → implementer writes
+  → verifier reviews diff and runs checks
+  → repair only if verification finds a real issue
+```
 
-The conversation card and activity panel use Harness's official locale service. They follow live language changes between English and Simplified Chinese—including status labels, dynamic summaries, controls, archive markers, and accessibility text—without a page reload or a separate plugin setting.
+The Web UI keeps the right-top activity monitor: current task, active member, write status, and progress are visible without taking over the conversation.
 
 ## Install
 
-> [!NOTE]
-> Requires an existing [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) installation.
-
-### npm
+### From npm
 
 ```sh
-dsh plugin --profile web add @nanmicoder/dsh-crew@latest
+dsh plugin --profile web add @nanmicoder/dsh-crew-coding
 ```
 
-### Build from source
+### From a local checkout
 
 ```sh
-git clone https://github.com/NanmiCoder/dsh-crew.git
-cd dsh-crew
 pnpm install
 pnpm build
-dsh plugin --profile web add .
+dsh plugin --profile web add /absolute/path/to/dsh-CrewCoding
 ```
 
-Run `pnpm build` again after changing the source. The local plugin install remains linked to this checkout.
-
-Validate the composed profile, restart DSH, and refresh the Web UI:
+Validate the composed profile, then restart DSH:
 
 ```sh
 dsh --profile web --dump-config
-dsh web
+dsh web --no-open
 ```
 
-Then ask for a team directly:
+## Default profiles
 
-> Use Crew to review the commits after v0.5.3 from performance, security, and product perspectives. Return one consolidated report.
-
-## How it works
-
-1. The current session creates a team and becomes its captain.
-2. The captain adds role-specific members backed by continuable sub-agents.
-3. The goal becomes tasks with owners and explicit dependencies.
-4. The shared scheduler uses real `running / idle / ready` state to atomically claim one ready task per idle member and wake it. An interrupted resident attempt stays parked and can resume through a direct message without losing its capability; after a cold process restart, the scheduler retries stranded open work with a fresh attempt.
-5. Members update with the current `attempt_id`; reassignment or captain takeover revokes the old attempt and waits for the old worker to quiesce before a new attempt starts.
-6. The captain presents the combined result, then archives the complete team record.
-
-Team state is stored under `<workspace>/.crew/`; the Web panel reads that disk truth and combines it with live sub-agent activity.
-
-Member creation is zero-interaction by default: a member on the captain's current LLM route snapshots that provider, model, and reasoning effort, while a member on a requested alternative route snapshots the target model's default effort; later continuations restore the resolved snapshot. Only an explicit heterogeneous-team request (for example, “backend on provider A/model X, frontend on provider B/model Y”) supplies a member-specific `provider` + `model`; there is no per-member model or reasoning prompt.
-
-## Slash command
-
-No “use Crew” phrasing required. The plugin registers the
-closed-namespace `/crew` host command, so the Web GUI slash menu shows
-an `crew` placeholder with an input hint: pick it (or type the
-command), describe the goal, and press Enter.
-
-```
-/crew research the pricing pages of three competitors
-```
-
-The command pipeline claims the line, then preserves that exact input as an
-ordinary user follow-up so it remains visible in the main chat. The gesture
-boundary adds the deterministic activation directive at pre-step, so the
-captain protocol still starts immediately. The invocation is also durably
-logged (`command/run` / `command/done`).
-
-Surfaces without command adjudication (for example the headless CLI) get the
-same deterministic activation through a gesture boundary: any genuine user
-message starting with `/crew` activates the protocol for the rest of
-the text. Mid-sentence mentions stay ordinary prose.
-
-## Configuration
-
-Defaults work without extra setup. A trusted profile can override member behavior:
+The distributed bundle provides the following minimal profiles:
 
 ```yaml
-- id: crew
+profiles:
+  check:
+    # security + performance, both read-only
+  build:
+    # implementer writes, verifier stays read-only
+```
+
+A profile override replaces the complete plugin config row, so repeat every setting you need:
+
+```yaml
+- id: crew-coding
   config:
-    stateDir: .crew
+    stateDir: .crew-coding
     memberProvider: spawn
-    memberModel: deepseek-v4
     memberMaxDepth: 1
-    maxMembers: 8
+    maxMembers: 3
+    profiles:
+      # your check/build profile definitions
 ```
 
-`memberProvider` is the sub-agent runtime backend (`spawn` / `fork`), not an LLM provider. Cross-LLM-provider routing uses the optional `provider` + `model` fields of `crew_add_member`; `memberModel` is only a model default for all members. A member on the captain's current provider/model inherits the captain's reasoning effort, while a changed provider or model automatically uses the target model's default. To request a particular effort, pass the optional `reasoning_effort` field — one of the target model's supported effort ids, or `"default"` to force the model's own default.
-
-`slashCommand: false` disables the deterministic `/crew` activation surfaces (slash command and gesture boundary), leaving the natural-language trigger as the only entry point.
-
-## Boundaries
-
-- One captain leads one active team at a time.
-- Idle members with no open task are automatically reused for ready work. An idle member that still owns an open attempt is parked until messaged or explicitly reassigned; messages that cannot be delivered live remain durable and are retried at a later status boundary.
-- State is file-backed and serialized within one DSH process; concurrent processes editing the same team are not coordinated.
-- The activity panel reports persisted state as-is. Models may occasionally finish work without performing the expected task-state update.
-
-See [docs/usage.md](./docs/usage.md) for the full tool reference, state model, Web UI behavior, configuration, and known limits.
-
-## Plugin development Skill
-
-The repository also ships the open Agent Skills package [`dsh-plugin-development`](./skills/dsh-plugin-development/SKILL.md):
-
-```sh
-npx skills add NanmiCoder/dsh-crew --skill dsh-plugin-development
-```
-
-## Documentation
-
-| Guide | Covers |
-| --- | --- |
-| [Usage](./docs/usage.md) | Architecture, UI behavior, tools, configuration, limits, and validation |
-| [Verification](./docs/verification-guide.md) | Offline, composition, real e2e, and GUI verification |
-| [Plugin development](./docs/developing-dsh-plugins.md) | Human-readable guide built from this plugin |
-| [README writing](./docs/readme-writing-guide.md) | Repository documentation conventions |
+`memberMaxDepth: 1` allows the Captain to create direct members while preventing those members from delegating again.
 
 ## Development
 
@@ -168,33 +100,14 @@ pnpm build
 pnpm verify
 ```
 
-## Named multi-role profiles
+After host, package, or profile changes, restart DSH. After a normal client rebuild, refresh the current Web page.
 
-Configure one or more complete team profiles in `cordis.patch.yml`. A profile always supplies the roster (independent provider/model/role/reasoning effort). Set `taskPlanning: captain` when the Captain should derive the DAG from the user's goal; omit it or set `taskPlanning: seed` to keep a fixed template workflow:
+## Boundaries
 
-```yaml
-profiles:
-  demo-delivery:
-    description: Ship a small feature
-    protocol: Discuss requirements, review, test, then prepare release; do not deploy automatically.
-    members:
-      - name: analyst
-        model: gpt-5.6-sol
-        role: Analyze requirements
-      - name: implementer
-        model: gpt-5.6-terra
-        role: Implement the approved solution
-    tasks:
-      - id: requirements
-        subject: Requirements discussion
-        assignee: analyst
-      - id: implementation
-        subject: Implement solution
-        assignee: implementer
-        dependencies: [requirements]
-```
-
-Use an explicit profile flag: `/crew --profile demo-delivery implement the feature`. The first ordinary token is never treated as an implicit profile. Normal command runs call `crew_create({ profile, approval: "required" })`: the roster and seed/Captain-designed DAG remain staged, no child session is created, and no task is claimed. Edit the plan in the activity panel using the host model catalog, return to chat so the Captain asks what to revise and then atomically updates the same draft, discard it, or click **Approve & Run**. Return/discard actions cancel any planning turn still running; discard also parks model-facing context that forbids silently creating a replacement team. Approval resolves the final provider/model/reasoning choices, atomically spawns the roster, and starts only ready tasks. A running team is stopped from its own panel header through a confirmation dialog rather than from the composer. Direct tool clients may pass `approval: "automatic"` for the legacy immediate path. Failed review/test tasks do not unlock downstream work; automatic repair/review tasks do not depend on the failed review.
+- This plugin is for coding collaboration, not general-purpose research routing.
+- One Captain owns one active team at a time.
+- It never deploys or performs external side effects without an explicit user request.
+- Multiple DSH processes must not operate on the same `.crew-coding` team state.
 
 ## License
 

@@ -1,7 +1,7 @@
 {
-  "name": "@nanmicoder/dsh-crew",
+  "name": "@nanmicoder/dsh-crew-coding",
   "version": "0.1.14",
-  "description": "Crew for DeepSeek Harness: multi-agent team collaboration (captain, members, tasks with dependencies, messaging) driven by natural language, with a tree monitor in the web GUI",
+  "description": "CrewCoding for DeepSeek Harness: controlled multi-agent coding with parallel read work and a single workspace writer",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -33,23 +33,22 @@
     "email": "relakkes@gmail.com",
     "url": "https://github.com/NanmiCoder"
   },
-  "homepage": "https://github.com/NanmiCoder/dsh-crew#readme",
+  "homepage": "https://github.com/NanmiCoder/dsh-crew-coding#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NanmiCoder/dsh-crew.git"
+    "url": "git+https://github.com/NanmiCoder/dsh-crew-coding.git"
   },
   "bugs": {
-    "url": "https://github.com/NanmiCoder/dsh-crew/issues"
+    "url": "https://github.com/NanmiCoder/dsh-crew-coding/issues"
   },
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
-    "crew",
+    "crew-coding",
+    "coding",
     "multi-agent",
-    "subagent",
-    "ai-agent",
-    "llm"
+    "subagent"
   ],
   "engines": {
     "node": "^22.19.0 || >=24"
