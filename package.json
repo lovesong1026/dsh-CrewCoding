@@ -26,18 +26,13 @@
     "README_ZH.md"
   ],
   "license": "MIT",
-  "author": {
-    "name": "程序员阿江 (Relakkes)",
-    "email": "relakkes@gmail.com",
-    "url": "https://github.com/NanmiCoder"
-  },
-  "homepage": "https://github.com/NanmiCoder/dsh-crew-coding#readme",
+  "homepage": "https://github.com/lovesong1026/dsh-CrewCoding#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NanmiCoder/dsh-crew-coding.git"
+    "url": "git+https://github.com/lovesong1026/dsh-CrewCoding.git"
   },
   "bugs": {
-    "url": "https://github.com/NanmiCoder/dsh-crew-coding/issues"
+    "url": "https://github.com/lovesong1026/dsh-CrewCoding/issues"
   },
   "keywords": [
     "dsh",
